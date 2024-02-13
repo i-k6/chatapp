@@ -1,6 +1,6 @@
 Instructions for running the project locally ( ) =>{
 
-Clone the Repository:git clone <repository-url>
+Clone the Repository:git clone "repository-url"
 
 Navigate to the Project Directory: cd <project-folder>
 
