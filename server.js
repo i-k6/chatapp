@@ -1,65 +1,39 @@
 const express = require('express');
 const http = require('http');
-const WebSocket = require('ws');
+const socketIo = require('socket.io');
+
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocket.Server({ server });
+const io = socketIo(server);
 
-const clients = new Set();
-const chatHistory = [];
 
-wss.on('connection', function connection(ws) {
-    ws.on('message', function incoming(message) {
-        const data = JSON.parse(message);
-        if (data.type === 'join') {
-            ws.username = data.username;
-            clients.add(ws);
-            sendUserList();
-            sendChatHistory(ws);
-        } else if (data.type === 'message') {
-            const newMessage = { username: ws.username, text: data.message.text };
-            chatHistory.push(newMessage);
-            broadcastMessage(newMessage);
-        }
+let nextUserId = 1;
+
+io.on('connection', (socket) => {
+    console.log('A user connected');
+
+    const userId = nextUserId++;
+
+    socket.on('join', (data) => {
+        console.log(`User ${userId} joined: ${data.username}`);
+        socket.broadcast.emit('userJoin', data.username);
     });
 
-    ws.on('close', function close() {
-        clients.delete(ws);
-        sendUserList();
+    socket.on('message', (message) => {
+        console.log('Message received:', message);
+        io.emit('message', { username: message.username, text: message.text });
     });
 
-    function broadcastMessage(message) {
-        clients.forEach(function each(client) {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    type: 'message',
-                    message
-                }));
-            }
-        });
-    }
+    socket.on('leave', (data) => {
+        console.log(`User ${userId} left: ${data.username}`);
+        socket.broadcast.emit('userLeave', data.username);
+    });
 
-    function sendUserList() {
-        const users = Array.from(clients).map(client => client.username);
-        clients.forEach(function each(client) {
-            if (client.readyState === WebSocket.OPEN) {
-                client.send(JSON.stringify({
-                    type: 'users',
-                    users
-                }));
-            }
-        });
-    }
-
-    function sendChatHistory(client) {
-        if (chatHistory.length > 0) {
-            client.send(JSON.stringify({ type: 'chatHistory', history: chatHistory }));
-        }
-    }
+    socket.on('disconnect', () => {
+        console.log(`User ${userId} disconnected`);
+    });
 });
-
-app.use(express.static('public'));
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {

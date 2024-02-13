@@ -1,60 +1,61 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Grid, Paper, Typography, List, ListItem, ListItemText, TextField, Button } from '@mui/material';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { io } from 'socket.io-client';
 import './css/ChatApp.css';
 
 const ChatApp = () => {
     const location = useLocation();
-    const username = new URLSearchParams(location.search).get('username');
     const navigate = useNavigate();
 
     const [message, setMessage] = useState('');
     const [messages, setMessages] = useState([]);
-    const [ws, setWs] = useState(null);
+    const [socket, setSocket] = useState(null);
 
     const messagesEndRef = useRef(null);
 
     useEffect(() => {
-        const websocket = new WebSocket('ws://localhost:3000');
-        setWs(websocket);
+        const username = new URLSearchParams(location.search).get('username');
+        const socket = io('http://localhost:3000');
+        setSocket(socket);
 
-        websocket.onopen = () => {
-            console.log('WebSocket connected');
-            websocket.send(JSON.stringify({ type: 'join', username }));
-        };
+        socket.emit('join', { username });
 
-        websocket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            if (data.type === 'message') {
-                setMessages(prevMessages => [...prevMessages, data.message]);
-                scrollToBottom();
-            } else if (data.type === 'userJoin') {
-                setMessages(prevMessages => [...prevMessages, { username: 'System', text: `${data.username} joined the room` }]);
-                scrollToBottom();
-            } else if (data.type === 'userLeave') {
-                setMessages(prevMessages => [...prevMessages, { username: 'System', text: `${data.username} left the room` }]);
-                scrollToBottom();
-            }
-        };
+        socket.on('message', (msg) => {
+            console.log('Message received:', msg); 
+            setMessages(prevMessages => [...prevMessages, msg]);
+            scrollToBottom();
+        });
 
-        websocket.onclose = () => {
-            console.log('WebSocket disconnected');
-        };
+        socket.on('userJoin', (username) => {
+            console.log('User joined:', username); 
+            setMessages(prevMessages => [...prevMessages, { username: 'System', text: `${username} joined the room` }]);
+            scrollToBottom();
+        });
+
+        socket.on('userLeave', (username) => {
+            console.log('User left:', username);
+            setMessages(prevMessages => [...prevMessages, { username: 'System', text: `${username} left the room` }]);
+            scrollToBottom();
+        });
+
+      
+        socket.on('connect_error', (error) => {
+            console.error('WebSocket connection error:', error);
+           
+        });
 
         return () => {
-            if (websocket) {
-                websocket.close();
+            if (socket) {
+                socket.disconnect();
             }
         };
-    }, [username]);
+    }, [location.search]);
 
     const handleSendMessage = () => {
-        if (message.trim() !== '') {
-            const newMessage = {
-                username: username,
-                text: message
-            };
-            sendMessageToServer(newMessage);
+        if (message.trim() !== '' && socket) {
+            const username = new URLSearchParams(location.search).get('username');
+            socket.emit('message', { username, text: message });
             setMessage('');
         }
     };
@@ -65,20 +66,13 @@ const ChatApp = () => {
         }
     };
 
-    const sendMessageToServer = (message) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'message', message }));
-        }
-    };
-
     const scrollToBottom = () => {
         messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     };
 
     const handleLeaveChat = () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: 'leave', username }));
-        }
+        const username = new URLSearchParams(location.search).get('username');
+        socket.emit('leave', { username });
         navigate('/');
     };
 
