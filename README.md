@@ -19,7 +19,7 @@ Interact with the Application: Test the application's functionalities as needed.
 Note : Before runnig the server.js run the npm start in multiple tabs as you wish with unique names and then run the node server.js, give it some time as it is running on localhost its taking time to render msg.
 
 // Thanks for the Assignement, Learnt alot about how websocket communication works. :)
-
+Live Link (Frontend-Only) : https://wordlecupchat.netlify.app/
 Output with Logs.
 
 ![Screenshot (55)](https://github.com/i-k6/chatapp/assets/46293088/f8617414-7926-4f46-a0f1-6badb3c46f34)
